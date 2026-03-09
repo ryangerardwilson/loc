@@ -31,6 +31,19 @@ EOF
 info() { echo -e "${MUTED}$1${NC}"; }
 die() { echo -e "${RED}$1${NC}" >&2; exit 1; }
 
+current_installed_version() {
+  local candidate=""
+  if [[ -x "$INSTALL_DIR/$APP" ]]; then
+    candidate="$INSTALL_DIR/$APP"
+  elif command -v "$APP" >/dev/null 2>&1; then
+    candidate=$(command -v "$APP")
+  fi
+  if [[ -z "$candidate" ]]; then
+    return 1
+  fi
+  "$candidate" -v 2>/dev/null || "$candidate" --version 2>/dev/null || return 1
+}
+
 requested_version=${VERSION:-}
 binary_path=""
 no_modify_path=false
@@ -92,8 +105,7 @@ if $upgrade; then
   [[ -z "$binary_path" ]] || die "--upgrade cannot be used with --binary"
   [[ -z "$requested_version" ]] || die "--upgrade cannot be combined with --version"
   latest=$(get_latest_version)
-  if command -v "$APP" >/dev/null 2>&1; then
-    installed=$($APP --version 2>/dev/null || true)
+  if installed=$(current_installed_version); then
     installed="${installed#v}"
     if [[ -n "$installed" && "$installed" == "$latest" ]]; then
       info "${APP} ${latest} already installed"
@@ -132,8 +144,7 @@ else
     [[ "$http_status" != "404" ]] || die "Release v${requested_version} not found"
   fi
 
-  if command -v "$APP" >/dev/null 2>&1 && [[ "$version_label" != "latest" ]]; then
-    installed=$($APP --version 2>/dev/null || true)
+  if [[ "$version_label" != "latest" ]] && installed=$(current_installed_version); then
     installed="${installed#v}"
     if [[ -n "$installed" && "$installed" == "$version_label" ]]; then
       info "${APP} ${version_label} already installed"
