@@ -68,8 +68,14 @@ done
 _latest_version=""
 get_latest_version() {
   if [[ -z "${_latest_version}" ]]; then
-    _latest_version=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-      | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"\\n]*\)".*/\1/p')
+    if command -v gh >/dev/null 2>&1; then
+      _latest_version=$(gh release view --repo "${REPO}" --json tagName --jq '.tagName' 2>/dev/null || true)
+      _latest_version="${_latest_version#v}"
+    fi
+    if [[ -z "${_latest_version}" ]]; then
+      _latest_version=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+        | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"\\n]*\)".*/\1/p')
+    fi
     [[ -n "${_latest_version}" ]] || die "Unable to determine latest release"
   fi
   printf '%s\n' "${_latest_version}"

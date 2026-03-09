@@ -79,6 +79,20 @@ def _version_tuple(value: str) -> tuple[int, ...]:
 
 def _fetch_latest_version() -> str | None:
     try:
+        proc = subprocess.run(
+            ["gh", "release", "view", "--repo", "ryangerardwilson/loc", "--json", "tagName", "--jq", ".tagName"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        proc = None
+    if proc is not None and proc.returncode == 0:
+        tag = proc.stdout.strip()
+        if tag:
+            return tag.lstrip("v")
+    try:
         req = Request(LATEST_RELEASE_API, headers={"Accept": "application/vnd.github+json"})
         with urlopen(req, timeout=10) as resp:  # nosec B310
             payload = resp.read()
