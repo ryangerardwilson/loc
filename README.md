@@ -2,7 +2,7 @@
 
 `loc` counts the lines you pushed to GitHub today across your repos.
 
-It uses your authenticated `gh` session, reads your GitHub push events for the day, resolves the pushed commit SHAs, then sums commit additions and deletions across the touched repos.
+It uses your authenticated `gh` session, reads your GitHub push events for the day, resolves the pushed commit SHAs, then sums commit additions and deletions into one cumulative total.
 
 This exists because "how much code did I actually ship today?" should be a one-command answer, not a tab safari.
 
@@ -30,27 +30,17 @@ loc -j
 loc -h
 ```
 
-Text output is dense and repo-by-repo:
+Text output is dense and cumulative:
 
 ```text
 login      : ryangerardwilson
 date       : 2026-03-09
 window     : 2026-03-09T00:00:00+05:30 -> 2026-03-10T00:00:00+05:30
-repos      : 2
 pushes     : 3
 commits    : 5
 added      : 241
 deleted    : 62
 net        : 179
-
-[1]-----
-repo       : ryangerardwilson/loc
-pushes     : 1
-commits    : 2
-added      : 70
-deleted    : 8
-net        : 62
-branches   : main
 ```
 
 ## Notes

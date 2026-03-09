@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
+import time
 from datetime import date, datetime
 from typing import Sequence
 from urllib.error import URLError
@@ -23,6 +25,46 @@ LATEST_RELEASE_API = "https://api.github.com/repos/ryangerardwilson/loc/releases
 
 class UsageError(ValueError):
     """Raised for invalid CLI usage."""
+
+
+class Loader:
+    def __init__(self) -> None:
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if not sys.stdout.isatty():
+            return
+        frames = [
+            "◐" * 12,
+            "◓" * 12,
+            "◑" * 12,
+            "◒" * 12,
+            "◐◓◑◒◐◓◑◒◐◓◑◒",
+            "◓◑◒◐◓◑◒◐◓◑◒◐",
+            "◑◒◐◓◑◒◐◓◑◒◐◓",
+            "◒◐◓◑◒◐◓◑◒◐◓◑",
+        ]
+
+        def run() -> None:
+            idx = 0
+            print("\033[?25l", end="", flush=True)
+            while not self._stop.is_set():
+                frame = frames[idx % len(frames)]
+                idx += 1
+                print(f"\r\033[97m{frame}\033[0m", end="", flush=True)
+                time.sleep(0.06)
+            print("\r" + " " * 12 + "\r", end="", flush=True)
+            print("\033[?25h", end="", flush=True)
+
+        self._thread = threading.Thread(target=run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._thread is None:
+            return
+        self._stop.set()
+        self._thread.join()
 
 
 def _version_tuple(value: str) -> tuple[int, ...]:
@@ -143,58 +185,26 @@ def parse_args(argv: Sequence[str]) -> tuple[bool, bool, bool, bool, date | None
 
 
 def _report_as_dict(report: LocReport) -> dict[str, object]:
-    start, end = day_window(report.target_day, report.generated_at.tzinfo)
-    repos = [
-        {
-            "repo": item.repo,
-            "pushes": item.pushes,
-            "commits": item.commits,
-            "additions": item.additions,
-            "deletions": item.deletions,
-            "net": item.net,
-            "branches": sorted(item.branches),
-        }
-        for item in report.repos.values()
-    ]
     return {
-        "login": report.login,
         "date": report.target_day.isoformat(),
-        "window_start": start.isoformat(),
-        "window_end": end.isoformat(),
-        "generated_at": report.generated_at.isoformat(),
-        "repo_count": len(report.repos),
+        "repos": len(report.repos),
         "pushes": report.pushes,
         "commits": report.commits,
         "additions": report.additions,
         "deletions": report.deletions,
         "net": report.net,
-        "repos": repos,
         "warnings": report.warnings,
     }
 
 
 def _print_text(report: LocReport) -> None:
-    start, end = day_window(report.target_day, report.generated_at.tzinfo)
-    print(f"login      : {report.login}")
     print(f"date       : {report.target_day.isoformat()}")
-    print(f"window     : {start.isoformat()} -> {end.isoformat()}")
     print(f"repos      : {len(report.repos)}")
     print(f"pushes     : {report.pushes}")
     print(f"commits    : {report.commits}")
     print(f"added      : {report.additions}")
     print(f"deleted    : {report.deletions}")
     print(f"net        : {report.net}")
-
-    for idx, repo in enumerate(report.repos.values(), start=1):
-        print()
-        print(f"[{idx}]-----")
-        print(f"repo       : {repo.repo}")
-        print(f"pushes     : {repo.pushes}")
-        print(f"commits    : {repo.commits}")
-        print(f"added      : {repo.additions}")
-        print(f"deleted    : {repo.deletions}")
-        print(f"net        : {repo.net}")
-        print(f"branches   : {', '.join(sorted(repo.branches))}")
 
     if report.warnings:
         print()
@@ -223,15 +233,21 @@ def main(argv: list[str] | None = None) -> int:
 
     now = datetime.now().astimezone()
     target_day = target_day or now.date()
+    loader = Loader()
 
     try:
+        if not as_json:
+            loader.start()
         report = build_report(GitHubClient(), target_day=target_day, now=now)
     except GitHubCLIError as exc:
+        loader.stop()
         print(f"GitHub CLI error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:
+        loader.stop()
         print(f"loc failed: {exc}", file=sys.stderr)
         return 1
+    loader.stop()
 
     if as_json:
         print(json.dumps(_report_as_dict(report), indent=2))
