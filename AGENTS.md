@@ -3,7 +3,7 @@
 ## Product Boundary
 - `loc` is a terminal-native GitHub activity counter.
 - Its scope is narrow: count the lines you pushed to GitHub for a chosen day and show cumulative totals only.
-- Keep the default path fast: `loc` with no args should count today.
+- Keep the happy path fast, but stay compliant with the global CLI rule that `loc` with no args prints help.
 - Prefer plain-text output that is dense, stable, and script-friendly.
 
 ## Architecture
@@ -15,8 +15,14 @@
 
 ## Interface Rules
 - Support `-h`, `-v`, `-u`, and `-j`.
-- Accept an optional single date argument in `YYYY-MM-DD`.
+- Accept compact date selectors:
+  - `YYYY-MM-DD`
+  - `tm <n>` for today minus `n` days
+  - `wm <n>` for week minus `n` calendar weeks
+  - `mm <n>` for month minus `n` calendar months
+  - `jan` ... `dec` with optional year
 - Errors must be terse and shape-specific.
+- `loc` with no args must print the same help as `loc -h`.
 - Output should show cumulative totals only.
 
 ## Implementation Guardrails

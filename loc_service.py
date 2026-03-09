@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from github_client import GitHubClient
+from github_client import GitHubCLIError, GitHubClient
 
 
 def _parse_github_timestamp(value: str, tzinfo) -> datetime:
@@ -35,7 +35,9 @@ class RepoTotals:
 @dataclass
 class LocReport:
     login: str
-    target_day: date
+    label: str
+    window_start: datetime
+    window_end: datetime
     generated_at: datetime
     repos: dict[str, RepoTotals]
     pushes: int
@@ -143,14 +145,15 @@ def _commit_totals(client: GitHubClient, repo: str, sha: str) -> tuple[int, int]
 def build_report(
     client: GitHubClient,
     *,
-    target_day: date,
+    label: str,
+    window_start: datetime,
+    window_end: datetime,
     now: datetime,
 ) -> LocReport:
     login = client.viewer_login()
     tzinfo = now.tzinfo
     if tzinfo is None:
         raise ValueError("now must be timezone-aware")
-    window_start, window_end = day_window(target_day, tzinfo)
     repos: dict[str, RepoTotals] = {}
     warnings: list[str] = []
     seen_commits: set[tuple[str, str]] = set()
@@ -159,11 +162,19 @@ def build_report(
         tuple[str, str | None, str | None, list[dict[str, Any]], int | None]
     ] = []
     pushes = 0
+    exhausted_recent_event_history = False
 
-    for page in range(1, 11):
-        events = client.api(f"users/{login}/events?per_page=100&page={page}")
+    for page in range(1, 4):
+        try:
+            events = client.api(f"users/{login}/events?per_page=100&page={page}")
+        except GitHubCLIError as exc:
+            if "HTTP 422" in str(exc):
+                break
+            raise
         if not isinstance(events, list) or not events:
             break
+        if page == 3:
+            exhausted_recent_event_history = True
 
         saw_event_in_window = False
         all_older = True
@@ -281,10 +292,14 @@ def build_report(
     total_additions = sum(item.additions for item in repos.values())
     total_deletions = sum(item.deletions for item in repos.values())
     total_commits = sum(item.commits for item in repos.values())
+    if exhausted_recent_event_history and pushes == 0:
+        warnings.append("GitHub only exposes recent push events here; older windows may be incomplete")
 
     return LocReport(
         login=login,
-        target_day=target_day,
+        label=label,
+        window_start=window_start,
+        window_end=window_end,
         generated_at=now,
         repos=dict(sorted(repos.items())),
         pushes=pushes,
