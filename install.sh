@@ -178,11 +178,15 @@ maybe_add_path() {
   shell_name=$(basename "${SHELL:-bash}")
   case "$shell_name" in
     zsh) rc_files=("$HOME/.zshrc" "$HOME/.zshenv" "$HOME/.config/zsh/.zshrc") ;;
-    bash) rc_files=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile") ;;
+    bash) rc_files=("$HOME/.bashrc") ;;
     fish) rc_files=("$HOME/.config/fish/config.fish") ;;
     *) rc_files=("$HOME/.profile") ;;
   esac
   for rc in "${rc_files[@]}"; do
+    if [[ ! -e "$rc" ]]; then
+      mkdir -p "$(dirname "$rc")"
+      : > "$rc"
+    fi
     [[ -w "$rc" ]] || continue
     if grep -Fq "$command" "$rc" 2>/dev/null; then
       return
