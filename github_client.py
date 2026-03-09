@@ -14,9 +14,10 @@ class GitHubClient:
         self.executable = executable
 
     def api(self, path: str) -> Any:
+        command = [self.executable, "api", path]
         try:
             proc = subprocess.run(
-                [self.executable, "api", path],
+                command,
                 capture_output=True,
                 text=True,
                 check=False,

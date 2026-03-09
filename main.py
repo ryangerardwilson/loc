@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from typing import Sequence
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -27,29 +25,6 @@ LATEST_RELEASE_API = "https://api.github.com/repos/ryangerardwilson/loc/releases
 
 class UsageError(ValueError):
     """Raised for invalid CLI usage."""
-
-
-MONTHS = {
-    "jan": 1,
-    "feb": 2,
-    "mar": 3,
-    "apr": 4,
-    "may": 5,
-    "jun": 6,
-    "jul": 7,
-    "aug": 8,
-    "sep": 9,
-    "oct": 10,
-    "nov": 11,
-    "dec": 12,
-}
-
-
-@dataclass(frozen=True)
-class QueryWindow:
-    label: str
-    start: datetime
-    end: datetime
 
 
 class Loader:
@@ -180,123 +155,26 @@ def _run_upgrade() -> int:
 def _print_help() -> None:
     print(
         _muted(
-            "loc - count lines pushed to GitHub across your repos\n\n"
-            "Usage:\n"
-            "  loc -h              Show this help\n"
-            "  loc tm 0            Today\n"
-            "  loc 2026-03-09      Count a specific day\n"
-            "  loc tm 1            Yesterday\n"
-            "  loc wm 0            Current calendar week\n"
-            "  loc mm 1            Previous calendar month\n"
-            "  loc jan             January of current year\n"
-            "  loc jan 2024        January 2024\n"
-            "  loc -j              Print JSON instead of text\n"
-            "  loc -v              Show installed version\n"
-            "  loc -u              Reinstall latest release if newer exists\n"
+            "loc\n\n"
+            "flags:\n"
+            "  loc -h\n"
+            "    show this help\n"
+            "  loc -v\n"
+            "    print the installed version\n"
+            "  loc -u\n"
+            "    upgrade to the latest release\n\n"
+            "features:\n"
+            "  count today's pushed lines of code\n"
+            "  # loc\n"
+            "  loc\n"
         )
     )
 
 
-def _start_of_month(target_year: int, target_month: int, tzinfo) -> datetime:
-    return datetime(target_year, target_month, 1, tzinfo=tzinfo)
-
-
-def _shift_month(target_year: int, target_month: int, delta: int) -> tuple[int, int]:
-    absolute = (target_year * 12 + (target_month - 1)) - delta
-    return absolute // 12, (absolute % 12) + 1
-
-
-def _parse_non_negative_int(raw: str, label: str) -> int:
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise UsageError(f"{label} must be an integer") from exc
-    if value < 0:
-        raise UsageError(f"{label} must be >= 0")
-    return value
-
-
-def resolve_query(tokens: Sequence[str], now: datetime) -> QueryWindow:
-    tzinfo = now.tzinfo
-    if tzinfo is None:
-        raise UsageError("Current time must be timezone-aware")
-
-    if not tokens:
-        start, end = day_window(now.date(), tzinfo)
-        return QueryWindow(label=now.date().isoformat(), start=start, end=end)
-
-    if len(tokens) == 1:
-        token = tokens[0].lower()
-        try:
-            target_day = date.fromisoformat(tokens[0])
-        except ValueError:
-            target_day = None
-        if target_day is not None:
-            start, end = day_window(target_day, tzinfo)
-            return QueryWindow(label=target_day.isoformat(), start=start, end=end)
-        if token in MONTHS:
-            start = _start_of_month(now.year, MONTHS[token], tzinfo)
-            end_year, end_month = _shift_month(now.year, MONTHS[token], -1)
-            end = _start_of_month(end_year, end_month, tzinfo)
-            return QueryWindow(
-                label=f"{start.date().isoformat()}..{(end - timedelta(days=1)).date().isoformat()}",
-                start=start,
-                end=end,
-            )
-        raise UsageError("Usage: loc [YYYY-MM-DD | tm N | wm N | mm N | mon [YYYY]] [-j]")
-
-    head = tokens[0].lower()
-    if head == "tm" and len(tokens) == 2:
-        offset = _parse_non_negative_int(tokens[1], "tm")
-        target_day = now.date() - timedelta(days=offset)
-        start, end = day_window(target_day, tzinfo)
-        return QueryWindow(label=target_day.isoformat(), start=start, end=end)
-
-    if head == "wm" and len(tokens) == 2:
-        offset = _parse_non_negative_int(tokens[1], "wm")
-        week_start_day = now.date() - timedelta(days=now.weekday() + (offset * 7))
-        start, _ = day_window(week_start_day, tzinfo)
-        end = start + timedelta(days=7)
-        return QueryWindow(
-            label=f"{week_start_day.isoformat()}..{(week_start_day + timedelta(days=6)).isoformat()}",
-            start=start,
-            end=end,
-        )
-
-    if head == "mm" and len(tokens) == 2:
-        offset = _parse_non_negative_int(tokens[1], "mm")
-        year_value, month_value = _shift_month(now.year, now.month, offset)
-        start = _start_of_month(year_value, month_value, tzinfo)
-        end_year, end_month = _shift_month(year_value, month_value, -1)
-        end = _start_of_month(end_year, end_month, tzinfo)
-        return QueryWindow(
-            label=f"{start.date().isoformat()}..{(end - timedelta(days=1)).date().isoformat()}",
-            start=start,
-            end=end,
-        )
-
-    if head in MONTHS and len(tokens) == 2:
-        year_value = _parse_non_negative_int(tokens[1], "year")
-        if year_value < 1:
-            raise UsageError("year must be >= 1")
-        start = _start_of_month(year_value, MONTHS[head], tzinfo)
-        end_year, end_month = _shift_month(year_value, MONTHS[head], -1)
-        end = _start_of_month(end_year, end_month, tzinfo)
-        return QueryWindow(
-            label=f"{start.date().isoformat()}..{(end - timedelta(days=1)).date().isoformat()}",
-            start=start,
-            end=end,
-        )
-
-    raise UsageError("Usage: loc [YYYY-MM-DD | tm N | wm N | mm N | mon [YYYY]] [-j]")
-
-
-def parse_args(argv: Sequence[str]) -> tuple[bool, bool, bool, bool, list[str]]:
+def parse_args(argv: Sequence[str]) -> tuple[bool, bool, bool]:
     show_help = False
     show_version = False
     do_upgrade = False
-    as_json = False
-    selector_tokens: list[str] = []
 
     for arg in argv:
         if arg == "-h":
@@ -308,21 +186,16 @@ def parse_args(argv: Sequence[str]) -> tuple[bool, bool, bool, bool, list[str]]:
         if arg == "-u":
             do_upgrade = True
             continue
-        if arg == "-j":
-            as_json = True
-            continue
-        if arg.startswith("-"):
-            raise UsageError(f"Unknown flag '{arg}'")
-        selector_tokens.append(arg)
+        raise UsageError(f"Unknown flag '{arg}'")
 
-    if show_version and (show_help or do_upgrade or as_json or selector_tokens):
+    if show_version and (show_help or do_upgrade):
         raise UsageError("-v cannot be combined with other arguments")
-    if show_help and (show_version or do_upgrade or as_json or selector_tokens):
+    if show_help and (show_version or do_upgrade):
         raise UsageError("-h cannot be combined with other arguments")
-    if do_upgrade and (show_version or show_help or as_json or selector_tokens):
+    if do_upgrade and (show_version or show_help):
         raise UsageError("-u cannot be combined with other arguments")
 
-    return show_help, show_version, do_upgrade, as_json, selector_tokens
+    return show_help, show_version, do_upgrade
 
 
 def _report_as_dict(report: LocReport) -> dict[str, object]:
@@ -357,12 +230,8 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    if not argv:
-        _print_help()
-        return 0
-
     try:
-        show_help, show_version, do_upgrade, as_json, selector_tokens = parse_args(argv)
+        show_help, show_version, do_upgrade = parse_args(argv)
     except UsageError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -377,21 +246,16 @@ def main(argv: list[str] | None = None) -> int:
         return _run_upgrade()
 
     now = datetime.now().astimezone()
-    try:
-        query = resolve_query(selector_tokens, now)
-    except UsageError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    start, end = day_window(now.date(), now.tzinfo)
     loader = Loader()
 
     try:
-        if not as_json:
-            loader.start()
+        loader.start()
         report = build_report(
             GitHubClient(),
-            label=query.label,
-            window_start=query.start,
-            window_end=query.end,
+            label=now.date().isoformat(),
+            window_start=start,
+            window_end=end,
             now=now,
         )
     except GitHubCLIError as exc:
@@ -403,11 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"loc failed: {exc}", file=sys.stderr)
         return 1
     loader.stop()
-
-    if as_json:
-        print(json.dumps(_report_as_dict(report), indent=2))
-    else:
-        _print_text(report)
+    _print_text(report)
     return 0
 
 

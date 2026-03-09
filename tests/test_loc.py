@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import io
 import sys
-from contextlib import redirect_stdout
 from pathlib import Path
 from datetime import date, datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from loc_service import RepoTotals, build_report, day_window
-from main import main, parse_args, resolve_query
+from main import parse_args
 
 
 class FakeClient:
@@ -73,27 +71,8 @@ class FakeClient:
             return {"stats": {"additions": 4, "deletions": 1}}
         raise AssertionError(path)
 
-
 def test_parse_args_defaults() -> None:
-    assert parse_args([]) == (False, False, False, False, [])
-
-
-def test_main_no_args_matches_help() -> None:
-    no_args = io.StringIO()
-    with redirect_stdout(no_args):
-        rc_no_args = main([])
-
-    help_args = io.StringIO()
-    with redirect_stdout(help_args):
-        rc_help = main(["-h"])
-
-    assert rc_no_args == 0
-    assert rc_help == 0
-    assert no_args.getvalue() == help_args.getvalue()
-
-
-def test_parse_args_selector_and_json() -> None:
-    assert parse_args(["tm", "1", "-j"]) == (False, False, False, True, ["tm", "1"])
+    assert parse_args([]) == (False, False, False)
 
 
 def test_day_window() -> None:
@@ -124,27 +103,3 @@ def test_build_report_dedupes_commit_stats() -> None:
     assert repo.pushes == 2
     assert repo.commits == 2
     assert repo.branches == {"main"}
-
-
-def test_resolve_query_tm() -> None:
-    query = resolve_query([], datetime(2026, 3, 9, 12, 0, tzinfo=timezone.utc))
-    assert query.label == "2026-03-09"
-
-    query = resolve_query(["tm", "2"], datetime(2026, 3, 9, 12, 0, tzinfo=timezone.utc))
-    assert query.label == "2026-03-07"
-
-
-def test_resolve_query_wm_and_mm() -> None:
-    wm_query = resolve_query(["wm", "0"], datetime(2026, 3, 11, 12, 0, tzinfo=timezone.utc))
-    assert wm_query.label == "2026-03-09..2026-03-15"
-
-    mm_query = resolve_query(["mm", "1"], datetime(2026, 3, 11, 12, 0, tzinfo=timezone.utc))
-    assert mm_query.label == "2026-02-01..2026-02-28"
-
-
-def test_resolve_query_month_name() -> None:
-    query = resolve_query(["jan"], datetime(2026, 3, 9, 12, 0, tzinfo=timezone.utc))
-    assert query.label == "2026-01-01..2026-01-31"
-
-    query = resolve_query(["jan", "2024"], datetime(2026, 3, 9, 12, 0, tzinfo=timezone.utc))
-    assert query.label == "2024-01-01..2024-01-31"
