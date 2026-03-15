@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import sys
+from io import StringIO
 from pathlib import Path
 from datetime import date, datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from loc_service import RepoTotals, build_report, day_window
-from main import parse_args
+from main import main
 
 
 class FakeClient:
@@ -71,8 +72,15 @@ class FakeClient:
             return {"stats": {"additions": 4, "deletions": 1}}
         raise AssertionError(path)
 
-def test_parse_args_defaults() -> None:
-    assert parse_args([]) == (False, False, False)
+def test_main_rejects_unknown_args() -> None:
+    stderr = StringIO()
+    original = sys.stderr
+    try:
+        sys.stderr = stderr
+        assert main(["--bad"]) == 1
+    finally:
+        sys.stderr = original
+    assert "Unknown flag '--bad'" in stderr.getvalue()
 
 
 def test_day_window() -> None:
