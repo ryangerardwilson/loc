@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import threading
@@ -61,7 +60,7 @@ class Loader:
             while not self._stop.is_set():
                 frame = frames[idx % len(frames)]
                 idx += 1
-                print(f"\r\033[97m{frame}\033[0m", end="", flush=True)
+                print(f"\r{frame}", end="", flush=True)
                 time.sleep(0.06)
             print("\r" + " " * 12 + "\r", end="", flush=True)
             print("\033[?25h", end="", flush=True)
@@ -74,14 +73,6 @@ class Loader:
             return
         self._stop.set()
         self._thread.join()
-
-
-def _muted(text: str) -> str:
-    if not sys.stdout.isatty() or "NO_COLOR" in os.environ:
-        return text
-    return f"\033[38;5;245m{text}\033[0m"
-
-
 def _report_as_dict(report: LocReport) -> dict[str, object]:
     return {
         "date": report.label,
