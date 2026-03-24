@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from typing import Any
 
@@ -10,15 +11,21 @@ class GitHubCLIError(RuntimeError):
 
 
 class GitHubClient:
-    def __init__(self, executable: str = "gh") -> None:
+    def __init__(self, executable: str = "gh", token: str | None = None) -> None:
         self.executable = executable
+        self.token = token.strip() if token else None
 
     def api(self, path: str) -> Any:
         command = [self.executable, "api", path]
+        env = os.environ.copy()
+        if self.token:
+            env["GH_TOKEN"] = self.token
+            env["GITHUB_TOKEN"] = self.token
         try:
             proc = subprocess.run(
                 command,
                 capture_output=True,
+                env=env,
                 text=True,
                 check=False,
                 timeout=30,

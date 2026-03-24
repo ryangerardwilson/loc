@@ -59,6 +59,63 @@ class PushResolution:
     warning: str | None = None
 
 
+def combine_reports(
+    reports_by_alias: dict[str, LocReport],
+    *,
+    label: str,
+    window_start: datetime,
+    window_end: datetime,
+    now: datetime,
+    extra_warnings: list[str] | None = None,
+) -> LocReport:
+    repos: dict[str, RepoTotals] = {}
+    pushes = 0
+    commits = 0
+    additions = 0
+    deletions = 0
+    warnings = list(extra_warnings or [])
+
+    for alias, report in sorted(reports_by_alias.items()):
+        pushes += report.pushes
+        commits += report.commits
+        additions += report.additions
+        deletions += report.deletions
+        warnings.extend(f"{alias}: {warning}" for warning in report.warnings)
+
+        for repo_name, repo_totals in report.repos.items():
+            if repo_name not in repos:
+                repos[repo_name] = RepoTotals(
+                    repo=repo_totals.repo,
+                    pushes=repo_totals.pushes,
+                    commits=repo_totals.commits,
+                    additions=repo_totals.additions,
+                    deletions=repo_totals.deletions,
+                    branches=set(repo_totals.branches),
+                )
+                continue
+
+            current = repos[repo_name]
+            current.pushes += repo_totals.pushes
+            current.commits += repo_totals.commits
+            current.additions += repo_totals.additions
+            current.deletions += repo_totals.deletions
+            current.branches.update(repo_totals.branches)
+
+    return LocReport(
+        login="multiple",
+        label=label,
+        window_start=window_start,
+        window_end=window_end,
+        generated_at=now,
+        repos=dict(sorted(repos.items())),
+        pushes=pushes,
+        commits=commits,
+        additions=additions,
+        deletions=deletions,
+        warnings=warnings,
+    )
+
+
 def _branch_name(ref: str | None) -> str:
     if not ref:
         return "unknown"
