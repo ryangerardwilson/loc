@@ -27,8 +27,7 @@ flags:
 
 features:
   count today's pushed lines across every configured alias
-  # loc | loc all
-  loc
+  # loc all
   loc all
 
   count today's pushed lines for one configured alias
@@ -259,7 +258,6 @@ APP_SPEC = AppSpec(
     version=__version__,
     help_text=HELP_TEXT,
     install_script_path=INSTALL_SCRIPT,
-    no_args_mode="dispatch",
     config_path_factory=config_path,
     config_bootstrap_text=CONFIG_BOOTSTRAP_TEXT,
 )

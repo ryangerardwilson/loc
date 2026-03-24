@@ -36,7 +36,6 @@ python main.py
 ## Usage
 
 ```bash
-loc
 loc all
 loc personal
 loc wiom
@@ -47,7 +46,7 @@ loc -u
 loc -v
 ```
 
-No-arg output is dense and cumulative across every configured alias:
+`loc -h` is the default no-arg surface. Use `loc all` for the aggregate view:
 
 ```text
 scope      : all aliases
@@ -112,7 +111,7 @@ The config file shape is:
 ## Notes
 
 - `loc` uses the local machine timezone when deciding what "today" means.
-- `loc` with no args prints today's cumulative totals across every configured alias.
+- `loc` with no args prints the same help text as `loc -h`.
 - `loc all` is an explicit alias for the same aggregate view.
 - `loc <alias>` prints totals only for that alias.
 - `all` is reserved and cannot be used as a saved alias name.

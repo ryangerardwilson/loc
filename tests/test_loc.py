@@ -86,6 +86,34 @@ def test_main_rejects_unknown_args() -> None:
     assert "Unknown flag '--bad'" in stderr.getvalue()
 
 
+def test_main_no_args_matches_help(monkeypatch) -> None:
+    def fail_load_config() -> LocConfig:
+        raise AssertionError("load_config should not run on help path")
+
+    monkeypatch.setattr(loc_main, "load_config", fail_load_config)
+
+    stdout = StringIO()
+    original = sys.stdout
+    try:
+        sys.stdout = stdout
+        assert main([]) == 0
+    finally:
+        sys.stdout = original
+    no_args_output = stdout.getvalue()
+
+    stdout = StringIO()
+    original = sys.stdout
+    try:
+        sys.stdout = stdout
+        assert main(["-h"]) == 0
+    finally:
+        sys.stdout = original
+
+    assert no_args_output == stdout.getvalue()
+    assert "show this help" in no_args_output
+    assert "loc all" in no_args_output
+
+
 def test_day_window() -> None:
     start, end = day_window(date(2026, 3, 9), timezone.utc)
     assert start.isoformat() == "2026-03-09T00:00:00+00:00"
@@ -184,7 +212,7 @@ def test_reserved_alias_all_is_rejected() -> None:
         raise AssertionError("Expected reserved alias failure")
 
 
-def test_main_aggregates_all_aliases(monkeypatch) -> None:
+def test_main_all_aggregates_all_aliases(monkeypatch) -> None:
     monkeypatch.setattr(
         loc_main,
         "load_config",
@@ -245,7 +273,7 @@ def test_main_aggregates_all_aliases(monkeypatch) -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main([]) == 0
+        assert main(["all"]) == 0
     finally:
         sys.stdout = original
 
@@ -254,62 +282,6 @@ def test_main_aggregates_all_aliases(monkeypatch) -> None:
     assert "aliases    : 2" in rendered
     assert "added      : 15" in rendered
     assert "deleted    : 4" in rendered
-
-
-def test_main_all_aggregates_all_aliases(monkeypatch) -> None:
-    monkeypatch.setattr(
-        loc_main,
-        "load_config",
-        lambda: LocConfig(
-            aliases={
-                "personal": AliasConfig(name="personal", token="token-personal"),
-                "wiom": AliasConfig(name="wiom", token="token-wiom"),
-            }
-        ),
-    )
-
-    class DummyLoader:
-        def start(self) -> None:
-            pass
-
-        def stop(self) -> None:
-            pass
-
-    class DummyClient:
-        def __init__(self, token: str | None = None) -> None:
-            self.token = token
-
-    monkeypatch.setattr(loc_main, "Loader", DummyLoader)
-    monkeypatch.setattr(loc_main, "GitHubClient", DummyClient)
-    monkeypatch.setattr(
-        loc_main,
-        "build_report",
-        lambda client, *, label, window_start, window_end, now: LocReport(
-            login="multi",
-            label=label,
-            window_start=window_start,
-            window_end=window_end,
-            generated_at=now,
-            repos={client.token or "repo": RepoTotals(repo=client.token or "repo", pushes=1, commits=1, additions=3, deletions=1)},
-            pushes=1,
-            commits=1,
-            additions=3,
-            deletions=1,
-            warnings=[],
-        ),
-    )
-
-    stdout = StringIO()
-    original = sys.stdout
-    try:
-        sys.stdout = stdout
-        assert main(["all"]) == 0
-    finally:
-        sys.stdout = original
-
-    rendered = stdout.getvalue()
-    assert "scope      : all aliases" in rendered
-    assert "aliases    : 2" in rendered
 
 
 def test_main_prints_specific_alias_report(monkeypatch) -> None:
