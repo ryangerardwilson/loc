@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import main as loc_main
-from loc_config import LocConfig, AliasConfig, config_path
+from loc_config import ConfigError, LocConfig, AliasConfig, config_path, normalize_alias
 from loc_service import LocReport, RepoTotals, build_report, combine_reports, day_window
 from main import main
 
@@ -175,6 +175,15 @@ def test_main_add_saves_alias_config(tmp_path, monkeypatch) -> None:
     assert "Saved alias 'wiom'" in stdout.getvalue()
 
 
+def test_reserved_alias_all_is_rejected() -> None:
+    try:
+        normalize_alias("all")
+    except ConfigError as exc:
+        assert str(exc) == "Alias 'all' is reserved"
+    else:
+        raise AssertionError("Expected reserved alias failure")
+
+
 def test_main_aggregates_all_aliases(monkeypatch) -> None:
     monkeypatch.setattr(
         loc_main,
@@ -245,6 +254,62 @@ def test_main_aggregates_all_aliases(monkeypatch) -> None:
     assert "aliases    : 2" in rendered
     assert "added      : 15" in rendered
     assert "deleted    : 4" in rendered
+
+
+def test_main_all_aggregates_all_aliases(monkeypatch) -> None:
+    monkeypatch.setattr(
+        loc_main,
+        "load_config",
+        lambda: LocConfig(
+            aliases={
+                "personal": AliasConfig(name="personal", token="token-personal"),
+                "wiom": AliasConfig(name="wiom", token="token-wiom"),
+            }
+        ),
+    )
+
+    class DummyLoader:
+        def start(self) -> None:
+            pass
+
+        def stop(self) -> None:
+            pass
+
+    class DummyClient:
+        def __init__(self, token: str | None = None) -> None:
+            self.token = token
+
+    monkeypatch.setattr(loc_main, "Loader", DummyLoader)
+    monkeypatch.setattr(loc_main, "GitHubClient", DummyClient)
+    monkeypatch.setattr(
+        loc_main,
+        "build_report",
+        lambda client, *, label, window_start, window_end, now: LocReport(
+            login="multi",
+            label=label,
+            window_start=window_start,
+            window_end=window_end,
+            generated_at=now,
+            repos={client.token or "repo": RepoTotals(repo=client.token or "repo", pushes=1, commits=1, additions=3, deletions=1)},
+            pushes=1,
+            commits=1,
+            additions=3,
+            deletions=1,
+            warnings=[],
+        ),
+    )
+
+    stdout = StringIO()
+    original = sys.stdout
+    try:
+        sys.stdout = stdout
+        assert main(["all"]) == 0
+    finally:
+        sys.stdout = original
+
+    rendered = stdout.getvalue()
+    assert "scope      : all aliases" in rendered
+    assert "aliases    : 2" in rendered
 
 
 def test_main_prints_specific_alias_report(monkeypatch) -> None:

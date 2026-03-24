@@ -37,6 +37,7 @@ python main.py
 
 ```bash
 loc
+loc all
 loc personal
 loc wiom
 loc add personal ghp_xxx
@@ -59,6 +60,8 @@ added      : 241
 deleted    : 62
 net        : 179
 ```
+
+`loc all` prints the same aggregate view explicitly.
 
 Per-alias output is the same shape, but scoped:
 
@@ -110,7 +113,9 @@ The config file shape is:
 
 - `loc` uses the local machine timezone when deciding what "today" means.
 - `loc` with no args prints today's cumulative totals across every configured alias.
+- `loc all` is an explicit alias for the same aggregate view.
 - `loc <alias>` prints totals only for that alias.
+- `all` is reserved and cannot be used as a saved alias name.
 - `loc` sets `GH_TOKEN` / `GITHUB_TOKEN` per alias when it calls `gh api`.
 - It counts pushed commit stats from GitHub, not local unpushed work.
 - Re-pushing the same commit SHA in the same repo on the same day is de-duplicated.

@@ -27,8 +27,9 @@ flags:
 
 features:
   count today's pushed lines across every configured alias
-  # loc
+  # loc | loc all
   loc
+  loc all
 
   count today's pushed lines for one configured alias
   # loc <alias>
@@ -243,6 +244,8 @@ def _dispatch(argv: list[str]) -> int:
 
     if len(argv) == 1:
         alias = argv[0]
+        if alias == "all":
+            return _run_all_aliases(alias_tokens)
         if alias not in alias_tokens:
             known = ", ".join(alias_tokens)
             raise UsageError(f"Unknown alias '{alias}'. Known aliases: {known}")

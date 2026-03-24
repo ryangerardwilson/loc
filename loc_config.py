@@ -9,6 +9,7 @@ from pathlib import Path
 
 CONFIG_BOOTSTRAP_TEXT = '{\n  "aliases": {}\n}\n'
 _ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_RESERVED_ALIASES = {"all"}
 
 
 class ConfigError(ValueError):
@@ -97,6 +98,8 @@ def normalize_alias(alias: str) -> str:
         raise ConfigError("Alias cannot be empty")
     if not _ALIAS_PATTERN.fullmatch(clean):
         raise ConfigError("Alias must use letters, numbers, '.', '_' or '-' only")
+    if clean in _RESERVED_ALIASES:
+        raise ConfigError(f"Alias '{clean}' is reserved")
     return clean
 
 
