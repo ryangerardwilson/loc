@@ -36,17 +36,17 @@ python main.py
 ## Usage
 
 ```bash
-loc all
-loc personal
-loc wiom
-loc add personal ghp_xxx
-loc conf
+loc count all
+loc count personal
+loc count wiom
+loc token add personal ghp_xxx
+loc config
 loc -h
 loc -u
 loc -v
 ```
 
-`loc -h` is the default no-arg surface. Use `loc all` for the aggregate view:
+`loc -h` is the default no-arg surface. Use `loc count all` for the aggregate view:
 
 ```text
 scope      : all aliases
@@ -60,7 +60,7 @@ deleted    : 62
 net        : 179
 ```
 
-`loc all` prints the same aggregate view explicitly.
+`loc count all` prints the aggregate view explicitly.
 
 Per-alias output is the same shape, but scoped:
 
@@ -87,11 +87,11 @@ net        : 77
 Add or replace an alias from the CLI:
 
 ```bash
-loc add personal ghp_xxx
-loc add wiom ghp_xxx
+loc token add personal ghp_xxx
+loc token add wiom ghp_xxx
 ```
 
-If you omit the token, `loc add <alias>` prompts for it.
+If you omit the token, `loc token add <alias>` prompts for it.
 
 The config file shape is:
 
@@ -112,8 +112,8 @@ The config file shape is:
 
 - `loc` uses the local machine timezone when deciding what "today" means.
 - `loc` with no args prints the same help text as `loc -h`.
-- `loc all` is an explicit alias for the same aggregate view.
-- `loc <alias>` prints totals only for that alias.
+- `loc count all` prints the aggregate view.
+- `loc count <alias>` prints totals only for that alias.
 - `all` is reserved and cannot be used as a saved alias name.
 - `loc` sets `GH_TOKEN` / `GITHUB_TOKEN` per alias when it calls `gh api`.
 - It counts pushed commit stats from GitHub, not local unpushed work.

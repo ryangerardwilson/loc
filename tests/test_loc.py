@@ -83,7 +83,7 @@ def test_main_rejects_unknown_args() -> None:
         assert main(["--bad"]) == 1
     finally:
         sys.stderr = original
-    assert "Unknown flag '--bad'" in stderr.getvalue()
+    assert "unknown flag: --bad" in stderr.getvalue()
 
 
 def test_main_no_args_matches_help(monkeypatch) -> None:
@@ -111,7 +111,53 @@ def test_main_no_args_matches_help(monkeypatch) -> None:
 
     assert no_args_output == stdout.getvalue()
     assert "show this help" in no_args_output
-    assert "loc all" in no_args_output
+    assert "loc count all" in no_args_output
+
+
+def test_main_version_is_single_line() -> None:
+    stdout = StringIO()
+    original = sys.stdout
+    try:
+        sys.stdout = stdout
+        assert main(["-v"]) == 0
+    finally:
+        sys.stdout = original
+
+    assert stdout.getvalue().strip() == loc_main.__version__
+    assert "\n" not in stdout.getvalue().strip()
+
+
+def test_main_upgrade_invokes_installer(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 7
+
+    def fake_run(command, *, check):  # type: ignore[no-untyped-def]
+        calls.append(command)
+        assert check is False
+        return Result()
+
+    monkeypatch.setattr(loc_main.subprocess, "run", fake_run)
+
+    assert main(["-u"]) == 7
+    assert calls == [["bash", str(loc_main.INSTALL_SCRIPT), "-u"]]
+
+
+def test_main_config_seeds_and_opens_config(tmp_path: Path, monkeypatch) -> None:
+    opened: list[Path] = []
+
+    def fake_open(path: Path) -> int:
+        opened.append(path)
+        return 0
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr(loc_main, "open_path_in_editor", fake_open)
+
+    assert main(["config"]) == 0
+    target = tmp_path / "loc" / "config.json"
+    assert opened == [target]
+    assert json.loads(target.read_text(encoding="utf-8")) == {"aliases": {}}
 
 
 def test_day_window() -> None:
@@ -194,7 +240,7 @@ def test_main_add_saves_alias_config(tmp_path, monkeypatch) -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main(["add", "wiom", "ghp_test_wiom"]) == 0
+        assert main(["token", "add", "wiom", "ghp_test_wiom"]) == 0
     finally:
         sys.stdout = original
 
@@ -273,7 +319,7 @@ def test_main_all_aggregates_all_aliases(monkeypatch) -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main(["all"]) == 0
+        assert main(["count", "all"]) == 0
     finally:
         sys.stdout = original
 
@@ -328,7 +374,7 @@ def test_main_prints_specific_alias_report(monkeypatch) -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main(["wiom"]) == 0
+        assert main(["count", "wiom"]) == 0
     finally:
         sys.stdout = original
 

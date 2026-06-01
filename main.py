@@ -6,16 +6,22 @@ import threading
 import time
 from datetime import datetime
 from getpass import getpass
+import os
+from pathlib import Path
+import shlex
+import subprocess
 
 from github_client import GitHubCLIError, GitHubClient
 from loc_config import CONFIG_BOOTSTRAP_TEXT, ConfigError, LocConfig, config_path, load_config, save_alias
 from loc_service import LocReport, build_report, combine_reports, day_window
-from rgw_cli_contract import AppSpec, resolve_install_script_path, run_app
 
 from _version import __version__
 
-INSTALL_SCRIPT = resolve_install_script_path(__file__)
+ANSI_GRAY = "\033[38;5;245m"
+ANSI_RESET = "\033[0m"
+INSTALL_SCRIPT = Path(__file__).resolve().with_name("install.sh")
 HELP_TEXT = """loc
+count lines pushed to GitHub today
 
 flags:
   loc -h
@@ -27,27 +33,60 @@ flags:
 
 features:
   count today's pushed lines across every configured alias
-  # loc all
-  loc all
+  # loc count all
+  loc count all
 
   count today's pushed lines for one configured alias
-  # loc <alias>
-  loc personal
-  loc wiom
+  # loc count <alias>
+  loc count personal
+  loc count wiom
 
   save or replace a GitHub token alias
-  # loc add <alias> [<token>]
-  loc add wiom ghp_example
-  loc add personal
+  # loc token add <alias> [<token>]
+  loc token add wiom ghp_example
+  loc token add personal
 
   open the user config
-  # loc conf
-  loc conf
+  # loc config
+  loc config
 """
 
 
 class UsageError(ValueError):
     """Raised for invalid CLI usage."""
+
+
+def muted(text: str) -> str:
+    if not sys.stdout.isatty() or "NO_COLOR" in os.environ:
+        return text
+    return f"{ANSI_GRAY}{text}{ANSI_RESET}"
+
+
+def print_help() -> None:
+    print(muted(HELP_TEXT.rstrip()))
+
+
+def open_path_in_editor(path: Path) -> int:
+    editor = (os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vim").strip()
+    command = shlex.split(editor) if editor else ["vim"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return subprocess.run([*(command or ["vim"]), str(path)], check=False).returncode
+
+
+def open_config() -> int:
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(CONFIG_BOOTSTRAP_TEXT, encoding="utf-8")
+        path.chmod(0o600)
+    return open_path_in_editor(path)
+
+
+def upgrade_app() -> int:
+    if not INSTALL_SCRIPT.exists():
+        print(f"install.sh is missing: {INSTALL_SCRIPT}", file=sys.stderr)
+        return 1
+    return subprocess.run(["bash", str(INSTALL_SCRIPT), "-u"], check=False).returncode
 
 
 class Loader:
@@ -219,7 +258,7 @@ def _run_single_alias(alias: str, token: str) -> int:
 
 def _add_alias(args: list[str]) -> int:
     if len(args) not in (1, 2):
-        raise UsageError("Usage: loc add <alias> [<token>]")
+        raise UsageError("usage: loc token add <alias> [<token>]")
 
     alias = args[0]
     token = args[1] if len(args) == 2 else getpass("GitHub PAT: ")
@@ -229,46 +268,51 @@ def _add_alias(args: list[str]) -> int:
 
 
 def _dispatch(argv: list[str]) -> int:
-    if argv[:1] == ["add"]:
-        return _add_alias(argv[1:])
+    if argv[:2] == ["token", "add"]:
+        return _add_alias(argv[2:])
     if argv and argv[0].startswith("-"):
-        raise UsageError(f"Unknown flag '{argv[0]}'")
+        raise UsageError(f"unknown flag: {argv[0]}")
+    if not argv:
+        print_help()
+        return 0
+    if argv[0] != "count":
+        raise UsageError("usage: loc count all | loc count <alias> | loc token add <alias> [<token>] | loc config")
+    if len(argv) != 2:
+        raise UsageError("usage: loc count all | loc count <alias>")
 
     alias_tokens = _configured_aliases(load_config())
     if not alias_tokens:
-        raise UsageError("No GitHub aliases configured. Add one with: loc add <alias> <token>")
+        raise UsageError("No GitHub aliases configured. Add one with: loc token add <alias> <token>")
 
-    if not argv:
+    alias = argv[1]
+    if alias == "all":
         return _run_all_aliases(alias_tokens)
-
-    if len(argv) == 1:
-        alias = argv[0]
-        if alias == "all":
-            return _run_all_aliases(alias_tokens)
-        if alias not in alias_tokens:
-            known = ", ".join(alias_tokens)
-            raise UsageError(f"Unknown alias '{alias}'. Known aliases: {known}")
-        return _run_single_alias(alias, alias_tokens[alias])
+    if alias not in alias_tokens:
+        known = ", ".join(alias_tokens)
+        raise UsageError(f"Unknown alias '{alias}'. Known aliases: {known}")
+    return _run_single_alias(alias, alias_tokens[alias])
 
     raise UsageError(f"Unknown command '{' '.join(argv)}'")
 
 
-APP_SPEC = AppSpec(
-    app_name="loc",
-    version=__version__,
-    help_text=HELP_TEXT,
-    install_script_path=INSTALL_SCRIPT,
-    config_path_factory=config_path,
-    config_bootstrap_text=CONFIG_BOOTSTRAP_TEXT,
-)
-
-
 def main(argv: list[str] | None = None) -> int:
-    if argv is None:
-        argv = sys.argv[1:]
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args or args == ["-h"]:
+        print_help()
+        return 0
+    if args == ["-v"]:
+        print(__version__)
+        return 0
+    if args == ["-u"]:
+        return upgrade_app()
+    if args == ["config"]:
+        return open_config()
+    if args and args[0] in {"-h", "-v", "-u"}:
+        print(f"usage: loc {args[0]}", file=sys.stderr)
+        return 1
 
     try:
-        return run_app(APP_SPEC, argv, _dispatch)
+        return _dispatch(args)
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
         return 1

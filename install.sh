@@ -125,7 +125,6 @@ get_latest_version() {
 
 existing_public_launcher_is_managed() {
   [[ -f "$PUBLIC_LAUNCHER" ]] || return 1
-  grep -Fq '# Managed by rgw_cli_contract local-bin launcher' "$PUBLIC_LAUNCHER" 2>/dev/null && return 0
   grep -Fq "\"${INSTALL_DIR}/${APP}\" \"\$@\"" "$PUBLIC_LAUNCHER" 2>/dev/null && return 0
   grep -Fq "exec \"${INSTALL_DIR}/${APP}\" \"\$@\"" "$PUBLIC_LAUNCHER" 2>/dev/null && return 0
   return 1
@@ -149,7 +148,7 @@ write_public_launcher() {
   mkdir -p "$PUBLIC_BIN_DIR"
   cat > "${PUBLIC_LAUNCHER}" <<EOF
 #!/usr/bin/env bash
-# Managed by rgw_cli_contract local-bin launcher
+# Managed by loc installer local-bin launcher
 set -euo pipefail
 exec "${INSTALL_DIR}/${APP}" "\$@"
 EOF
