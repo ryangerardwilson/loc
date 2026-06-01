@@ -2,7 +2,7 @@
 
 ## Workspace Defaults
 - Follow `/home/ryan/Subagents/cpo/CLI_TUI_STYLE_GUIDE.md` for CLI/TUI taste and help shape.
-- Follow `/home/ryan/Subagents/cto/CANONICAL_REFERENCE_IMPLEMENTATION_FOR_CLI_AND_TUI_APPS.md` for executable contract details such as `-h`, `-v`, `-u`, installer behavior, release workflow expectations, and regression expectations.
+- Follow `/home/ryan/Subagents/cto/CANONICAL_REFERENCE_IMPLEMENTATION_FOR_CLI_AND_TUI_APPS.md` for executable contract details such as `help`, `version`, `upgrade`, installer behavior, release workflow expectations, and regression expectations.
 - This file only records `loc`-specific constraints or durable deviations.
 
 ## Product Boundary
@@ -20,7 +20,7 @@
 - Avoid hidden state, caches, or background services.
 
 ## Interface Rules
-- Support `-h`, `-v`, and `-u`.
+- Support `help`, `version`, and `upgrade`.
 - Errors must be terse and shape-specific.
 - Output should show cumulative totals only.
 

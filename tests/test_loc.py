@@ -105,7 +105,7 @@ def test_main_no_args_matches_help(monkeypatch) -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main(["-h"]) == 0
+        assert main(["help"]) == 0
     finally:
         sys.stdout = original
 
@@ -119,7 +119,7 @@ def test_main_version_is_single_line() -> None:
     original = sys.stdout
     try:
         sys.stdout = stdout
-        assert main(["-v"]) == 0
+        assert main(["version"]) == 0
     finally:
         sys.stdout = original
 
@@ -140,8 +140,8 @@ def test_main_upgrade_invokes_installer(monkeypatch) -> None:
 
     monkeypatch.setattr(loc_main.subprocess, "run", fake_run)
 
-    assert main(["-u"]) == 7
-    assert calls == [["bash", str(loc_main.install_script_path()), "-u"]]
+    assert main(["upgrade"]) == 7
+    assert calls == [["bash", str(loc_main.install_script_path()), "upgrade"]]
 
 
 def test_main_config_seeds_and_opens_config(tmp_path: Path, monkeypatch) -> None:

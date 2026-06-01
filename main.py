@@ -22,12 +22,12 @@ ANSI_RESET = "\033[0m"
 HELP_TEXT = """loc
 count lines pushed to GitHub today
 
-flags:
-  loc -h
+global actions:
+  loc help
     show this help
-  loc -v
+  loc version
     print the installed version
-  loc -u
+  loc upgrade
     upgrade to the latest release
 
 features:
@@ -99,7 +99,7 @@ def upgrade_app() -> int:
     if not install_script.exists():
         print(f"install.sh is missing: {install_script}", file=sys.stderr)
         return 1
-    return subprocess.run(["bash", str(install_script), "-u"], check=False).returncode
+    return subprocess.run(["bash", str(install_script), "upgrade"], check=False).returncode
 
 
 class Loader:
@@ -310,17 +310,17 @@ def _dispatch(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args == ["-h"]:
+    if not args or args == ["help"]:
         print_help()
         return 0
-    if args == ["-v"]:
+    if args == ["version"]:
         print(__version__)
         return 0
-    if args == ["-u"]:
+    if args == ["upgrade"]:
         return upgrade_app()
     if args == ["config"]:
         return open_config()
-    if args and args[0] in {"-h", "-v", "-u"}:
+    if args and args[0] in {"help", "version", "upgrade"}:
         print(f"usage: loc {args[0]}", file=sys.stderr)
         return 1
 

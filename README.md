@@ -41,12 +41,12 @@ loc count personal
 loc count wiom
 loc token add personal ghp_xxx
 loc config
-loc -h
-loc -u
-loc -v
+loc help
+loc upgrade
+loc version
 ```
 
-`loc -h` is the default no-arg surface. Use `loc count all` for the aggregate view:
+`loc help` is the default no-arg surface. Use `loc count all` for the aggregate view:
 
 ```text
 scope      : all aliases
@@ -111,7 +111,7 @@ The config file shape is:
 ## Notes
 
 - `loc` uses the local machine timezone when deciding what "today" means.
-- `loc` with no args prints the same help text as `loc -h`.
+- `loc` with no args prints the same help text as `loc help`.
 - `loc count all` prints the aggregate view.
 - `loc count <alias>` prints totals only for that alias.
 - `all` is reserved and cannot be used as a saved alias name.
