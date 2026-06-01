@@ -19,7 +19,6 @@ from _version import __version__
 
 ANSI_GRAY = "\033[38;5;245m"
 ANSI_RESET = "\033[0m"
-INSTALL_SCRIPT = Path(__file__).resolve().with_name("install.sh")
 HELP_TEXT = """loc
 count lines pushed to GitHub today
 
@@ -66,6 +65,19 @@ def print_help() -> None:
     print(muted(HELP_TEXT.rstrip()))
 
 
+def app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def install_script_path() -> Path:
+    override = os.environ.get("LOC_INSTALL_SCRIPT")
+    if override:
+        return Path(override)
+    return app_root() / "install.sh"
+
+
 def open_path_in_editor(path: Path) -> int:
     editor = (os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vim").strip()
     command = shlex.split(editor) if editor else ["vim"]
@@ -83,10 +95,11 @@ def open_config() -> int:
 
 
 def upgrade_app() -> int:
-    if not INSTALL_SCRIPT.exists():
-        print(f"install.sh is missing: {INSTALL_SCRIPT}", file=sys.stderr)
+    install_script = install_script_path()
+    if not install_script.exists():
+        print(f"install.sh is missing: {install_script}", file=sys.stderr)
         return 1
-    return subprocess.run(["bash", str(INSTALL_SCRIPT), "-u"], check=False).returncode
+    return subprocess.run(["bash", str(install_script), "-u"], check=False).returncode
 
 
 class Loader:

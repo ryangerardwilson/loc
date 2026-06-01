@@ -141,7 +141,7 @@ def test_main_upgrade_invokes_installer(monkeypatch) -> None:
     monkeypatch.setattr(loc_main.subprocess, "run", fake_run)
 
     assert main(["-u"]) == 7
-    assert calls == [["bash", str(loc_main.INSTALL_SCRIPT), "-u"]]
+    assert calls == [["bash", str(loc_main.install_script_path()), "-u"]]
 
 
 def test_main_config_seeds_and_opens_config(tmp_path: Path, monkeypatch) -> None:
